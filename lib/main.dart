@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 
@@ -16,20 +15,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      title: 'piConditioner',
+      theme: ThemeData(),
+      darkTheme: ThemeData(brightness: Brightness.dark),
+      themeMode: ThemeMode.dark,
+      home: const MyHomePage(title: 'piConditioner'),
     );
   }
 }
@@ -53,9 +43,15 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  String? temp = '';
+  double? temp = 0.0;
   String? humidity = '';
   String? status = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _getTemperatureStatus();
+  }
 
   Future _getTemperatureStatus() async {
     try {
@@ -93,42 +89,101 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    _getTemperatureStatus();
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    Widget titleSection = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Align(
+                  alignment: Alignment.center,
+                  child: Container(
+                    margin: const EdgeInsets.all(30.0),
+                    padding: const EdgeInsets.all(60.0),
+                    decoration: BoxDecoration(
+                        border: Border.all(
+                            color: Colors.black,
+                            width: 4,
+                            style: BorderStyle.solid),
+                        borderRadius: BorderRadius.circular(20),
+                        color: Colors.grey.shade800),
+                    child: Text(
+                      temp?.round().toString() ?? 'n/a',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontFamily: 'DigitalFont',
+                          color: Colors.greenAccent.shade400,
+                          fontSize: 75),
+                    ),
+                  )),
+              const Align(
+                  alignment: Alignment.topRight,
+                  widthFactor: 0.25,
+                  heightFactor: 5,
+                  child: Text(
+                    '\u00B0 F',
+                    style: TextStyle(color: Colors.grey, fontSize: 25),
+                  ))
+            ]),
+        // Row(children: [
+        //   const Text(
+        //     'Humidity: ',
+        //     textAlign: TextAlign.center,
+        //     style: TextStyle(color: Colors.grey, fontSize: 25),
+        //   ),
+        //   Text(
+        //     humidity.toString(),
+        //     textAlign: TextAlign.center,
+        //     style: TextStyle(
+        //         fontFamily: 'DigitalFont',
+        //         color: Colors.greenAccent.shade400,
+        //         fontSize: 50),
+        //   )
+        // ])
+      ],
+    );
+
+    Widget buttonSection = Column(children: [
+      Column(children: [
+        Align(
+            alignment: Alignment.centerRight,
+            widthFactor: 0.125,
+            child: IconButton(
+              icon: const Icon(
+                Icons.power_settings_new,
+                size: 70,
+              ),
+              color: (status == "on") ? Colors.red : Colors.green,
+              onPressed: () {
+                _togglePower(status);
+              },
+            ))
+      ])
+    ]);
+
     return Scaffold(
         appBar: AppBar(
           // Here we take the value from the MyHomePage object that was created by
           // the App.build method, and use it to set our appbar title.
           title: Text(widget.title),
         ),
-        body: Center(
-            // Center is a layout widget. It takes a single child and positions it
-            // in the middle of the parent.
-            child: 
-            Row(
-              mainAxisSize: MainAxisSize.min, 
-              children: [
-            IconButton(
-            icon: Image.asset('images/RefreshButton.png'),
-            iconSize: 50,
-            onPressed: () {
+        body: RefreshIndicator(
+            onRefresh: () async {
+              await Future.delayed(Duration(seconds: 2));
               _getTemperatureStatus();
             },
-          ),
-          IconButton(
-            icon: Image.asset('images/PowerSymbol.png'),
-            iconSize: 50,
-            onPressed: () {
-              _togglePower(status);
-            },
-          )
-        ])
-            // This trailing comma makes auto-formatting nicer for build methods.
-            ));
+            child: Column(
+                // Center is a layout widget. It takes a single child and positions it
+                // in the middle of the parent.
+                children: [
+                  Wrap(
+                      alignment: WrapAlignment.center,
+                      children: [titleSection, buttonSection])
+                ]
+
+                // This trailing comma makes auto-formatting nicer for build methods.
+                )));
   }
 }
