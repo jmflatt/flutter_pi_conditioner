@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart';
-
-import 'Models/piconditioner_status_model.dart';
+import 'package:piconditioner_flutter_app/Services/pi_conditioner_service.dart';
+import 'package:piconditioner_flutter_app/temperature_control.dart';
+import 'Services/service_locator.dart';
 
 void main() {
+  setupServiceLocator();
   runApp(const MyApp());
 }
 
@@ -44,47 +44,54 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   double? temp = 0.0;
-  String? humidity = '';
+  double? humidity = 0.0;
   String? status = '';
+  bool loading = false;
+  final PiConditionerService _piConditionerService =
+      getIt<PiConditionerService>();
 
   @override
   void initState() {
     super.initState();
-    _getTemperatureStatus();
+    _setTempDetails();
   }
 
-  Future _getTemperatureStatus() async {
-    try {
-      var response = await get(Uri.parse('http://192.168.1.94:3000/status'));
-      if (response.statusCode == 200) {
-        var parsedResponse =
-            PiConditionerStatus.fromJson(jsonDecode(response.body));
-        setState(() {
-          temp = parsedResponse.temperature;
-          humidity = parsedResponse.humidity;
-          status = parsedResponse.status;
-        });
-      } else {
-        throw Exception("Unable To Fetch Temp Data");
-      }
-    } catch (exception) {
-      throw Exception("Unable To Fetch Temp Data");
-    }
+  _setTempDetails() async {
+    var details = await _piConditionerService.getTemperatureStatus();
+    setState(() {
+      temp = details.temperature;
+      humidity = details.humidity;
+      status = details.status;
+    });
+    // setState(() {
+    //   temp = 99;
+    //   humidity = 40;
+    //   status = "off";
+    // });
   }
 
-  Future _togglePower(String? currenStatus) async {
-    if (currenStatus == null) return;
-    var response = await get(
-        Uri.parse("http://192.168.1.94:3000/${status == 'on' ? 'off' : 'on'}"));
+  _togglePower(status) async {
+    var result = await _piConditionerService.togglePower(status);
+    setState(() {
+      // status = "on";
+      status = result['status'];
+    });
+  }
 
-    if (response.statusCode == 200) {
-      var parsedResponse = jsonDecode(response.body);
-      setState(() {
-        status = parsedResponse['status'];
-      });
-    } else {
-      throw Exception("Unable To toggle power");
-    }
+  Future<void> _refreshData() async {
+    var details = await _piConditionerService.getTemperatureStatus();
+    // await Future.delayed(const Duration(seconds: 2));
+    setState(() {
+      temp = details.temperature;
+      humidity = details.humidity;
+      status = details.status;
+    });
+    // setState(() {
+    //   temp = 100.0; // details.temperature;
+    //   humidity = 50.0; // details.humidity;
+    //   status = "on"; // details.status;
+    //   loading = false;
+    // });
   }
 
   @override
@@ -127,21 +134,6 @@ class _MyHomePageState extends State<MyHomePage> {
                     style: TextStyle(color: Colors.grey, fontSize: 25),
                   ))
             ]),
-        // Row(children: [
-        //   const Text(
-        //     'Humidity: ',
-        //     textAlign: TextAlign.center,
-        //     style: TextStyle(color: Colors.grey, fontSize: 25),
-        //   ),
-        //   Text(
-        //     humidity.toString(),
-        //     textAlign: TextAlign.center,
-        //     style: TextStyle(
-        //         fontFamily: 'DigitalFont',
-        //         color: Colors.greenAccent.shade400,
-        //         fontSize: 50),
-        //   )
-        // ])
       ],
     );
 
@@ -164,26 +156,45 @@ class _MyHomePageState extends State<MyHomePage> {
     ]);
 
     return Scaffold(
-        appBar: AppBar(
+      appBar: AppBar(
           // Here we take the value from the MyHomePage object that was created by
           // the App.build method, and use it to set our appbar title.
-          title: Text(widget.title),
-        ),
-        body: RefreshIndicator(
-            onRefresh: () async {
-              await Future.delayed(Duration(seconds: 2));
-              _getTemperatureStatus();
-            },
-            child: Column(
-                // Center is a layout widget. It takes a single child and positions it
-                // in the middle of the parent.
-                children: [
-                  Wrap(
-                      alignment: WrapAlignment.center,
-                      children: [titleSection, buttonSection])
-                ]
-
-                // This trailing comma makes auto-formatting nicer for build methods.
-                )));
+          ),
+      body: SizedBox.expand(
+          child: GestureDetector(
+              onHorizontalDragEnd: (details) {
+                // Swiping in left direction.
+                if (details.velocity.pixelsPerSecond.dx < 1) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => PiConditionerDetail()),
+                  );
+                }
+              },
+              onVerticalDragEnd: (details) async {
+                // Swiping in right direction.
+                if (details.velocity.pixelsPerSecond.dy > 1) {
+                  setState(() {
+                    loading = true;
+                  });
+                  await _refreshData();
+                }
+              },
+              child: !loading
+                  ? Column(
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                          Image.asset(
+                            'images/pi-conditioner-logo.jpg',
+                            fit: BoxFit.cover,
+                          ),
+                          Wrap(
+                              alignment: WrapAlignment.center,
+                              children: [titleSection, buttonSection])
+                        ]
+                      )
+                  : const Icon(Icons.refresh))),
+    );
   }
 }
